@@ -25,13 +25,33 @@ describe('read-only API', () => {
     expect(r.statusCode).toBe(200); expect(b.data.realized_pnl_usd).toBe(3.005);
     expect(b.data.fees_earned_usd).toBe(6); expect(b.data.win_count).toBe(1);
     expect(b.data.loss_count).toBe(1); expect(b.data.breakeven_count).toBe(1);
-    expect(b.data.profit_factor.value).toBeCloseTo(12/9); expect(b.meta.coverage.included).toBe(3);
+    expect(b.data.profit_factor.value).toBeCloseTo(12/9); expect(b.meta.coverage).toEqual({eligible:3,included:3,total:4});
     await app.close();
   });
   it('returns cumulative realized PnL and realized-close drawdown', async () => {
     const app=buildApp(db); const b=(await app.inject({method:'GET',url:'/api/performance/series'})).json();
     expect(b.data.map((x:any)=>x.cumulative_pnl_usd)).toEqual([12,3,3.005]);
     expect(b.data[1].drawdown_usd).toBe(-9); await app.close();
+  });
+  it('accepts date-only filter bounds from HTML date controls', async () => {
+    const app=buildApp(db);
+    const r=await app.inject({method:'GET',url:'/api/overview?from=2026-01-01&to=2026-01-31'});
+    expect(r.statusCode).toBe(200);
+    await app.close();
+  });
+  it('returns 404 for an unknown position', async () => {
+    const app=buildApp(db);
+    const r=await app.inject({method:'GET',url:'/api/positions/missing'});
+    expect(r.statusCode).toBe(404);
+    await app.close();
+  });
+  it('reports signal coverage as eligible-record ratio', async () => {
+    db.prepare(`UPDATE performance_records SET signal_snapshot='{}' WHERE position='A'`).run();
+    const app=buildApp(db);
+    const body=(await app.inject({method:'GET',url:'/api/data-quality'})).json();
+    expect(body.data.signal_records).toBe(1);
+    expect(body.data.signal_coverage).toBeCloseTo(1/3);
+    await app.close();
   });
   it('provides reliability and nearest-rank tool latency', async () => {
     const app=buildApp(db); const b=(await app.inject({method:'GET',url:'/api/reliability/tools'})).json();

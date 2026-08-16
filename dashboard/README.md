@@ -27,7 +27,22 @@ npm run build
 npm start
 ```
 
-The API listens on `http://127.0.0.1:4310` by default.
+The dashboard and API share `http://127.0.0.1:4310` by default.
+
+For development, run the API and Vite server separately:
+
+```bash
+npm run dev:api
+npm run dev:web
+```
+
+For browser QA against a running production build:
+
+```bash
+npm run test:e2e
+```
+
+An isolated systemd user-service template is provided at `meridian-analytics.service`. Review its Node path and repository path before installing it.
 
 ## Environment
 
