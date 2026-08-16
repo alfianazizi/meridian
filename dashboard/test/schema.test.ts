@@ -14,6 +14,7 @@ describe('schema and migrations', () => {
     'performance_records',
     'decisions',
     'action_events',
+    'model_screening_runs',
     '_migrations',
   ];
 

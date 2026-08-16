@@ -5,7 +5,7 @@ import type { DB } from './connection.js';
  * or normalization semantics change; add a corresponding migration below and
  * extend migration/fixture coverage (see analytics source contract section 14).
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 interface Migration {
   version: number;
@@ -182,6 +182,32 @@ const MIGRATIONS: Migration[] = [
       `CREATE INDEX idx_actions_timestamp ON action_events(timestamp)`,
       `CREATE INDEX idx_actions_position ON action_events(position)`,
       `CREATE INDEX idx_actions_position_hint ON action_events(tool, success)`,
+    ],
+  },
+  {
+    version: 2,
+    name: 'model screening telemetry',
+    sql: [
+      `CREATE TABLE model_screening_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        generation_id INTEGER NOT NULL DEFAULT 0,
+        byte_offset INTEGER NOT NULL DEFAULT 0,
+        source_file TEXT NOT NULL DEFAULT 'model-screening.jsonl',
+        cycle_id TEXT NOT NULL,
+        ts TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL,
+        authoritative INTEGER NOT NULL,
+        duration_ms INTEGER,
+        status TEXT NOT NULL,
+        decision TEXT,
+        candidate_count INTEGER NOT NULL DEFAULT 0,
+        selected_pool TEXT,
+        error_class TEXT,
+        UNIQUE(generation_id, byte_offset, source_file)
+      )`,
+      `CREATE INDEX idx_model_runs_cycle ON model_screening_runs(cycle_id, ts)`,
+      `CREATE INDEX idx_model_runs_model ON model_screening_runs(model, ts)`,
     ],
   },
 ];

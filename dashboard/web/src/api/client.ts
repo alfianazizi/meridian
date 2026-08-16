@@ -5,6 +5,7 @@ import type {
   FiltersData,
   Meta,
   MetaData,
+  ModelPerformanceData,
   OverviewData,
   PositionDetail,
   PositionRow,
@@ -59,6 +60,7 @@ export const getDecisions = (params: URLSearchParams) =>
   apiGet<DecisionRow[]>(`/api/decisions?${params.toString()}`);
 
 export const getDataQuality = () => apiGet<DataQualityData>('/api/data-quality');
+export const getModelPerformance=()=>apiGet<ModelPerformanceData>('/api/models/performance');
 
 export const getFilters = () => apiGet<FiltersData>('/api/filters');
 
@@ -75,6 +77,7 @@ export const api = {
   position: getPosition,
   decisions: (query = '') => getDecisions(params(query)),
   quality: getDataQuality,
+  models:getModelPerformance,
   filters: getFilters,
   meta: getMeta,
 };

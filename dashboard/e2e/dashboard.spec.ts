@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const routes=['/','/performance','/reliability','/strategies','/positions','/data-quality'];
+const routes=['/','/performance','/reliability','/model-lab','/strategies','/positions','/data-quality'];
 
 test.beforeEach(async({page})=>{
   const errors:string[]=[];

@@ -35,6 +35,7 @@ import { stageSignals } from "./signal-tracker.js";
 import { getWeightsSummary } from "./signal-weights.js";
 import { bootstrapHiveMind, ensureAgentId, getHiveMindPullMode, isHiveMindEnabled, pullHiveMindLessons, pullHiveMindPresets, registerHiveMindAgent, startHiveMindBackgroundSync } from "./hivemind.js";
 import { appendDecision } from "./decision-log.js";
+import { deriveDecisionFromReport, launchShadowComparisons, newScreeningCycleId, recordAuthoritativeScreening } from "./shadow-screening.js";
 
 import { REPO_ROOT, repoPath } from "./repo-root.js";
 
@@ -209,7 +210,7 @@ For each position, evaluate the instruction condition against the live data:
 - If NOT met → HOLD, do nothing.
 
 After evaluating, write a brief one-line result per position.
-    `, config.llm.maxSteps, [], "MANAGER", config.llm.managementModel, 2048, {
+    `, config.llm.managementMaxSteps, [], "MANAGER", config.llm.managementModel, 2048, {
       onToolStart: async ({ name }) => { await liveMessage?.toolStart(name); },
       onToolFinish: async ({ name, result, success }) => { await liveMessage?.toolFinish(name, result, success); },
     });
@@ -364,6 +365,9 @@ export async function runScreeningCycle({ silent = false } = {}) {
     return null;
   }
   _screeningBusy = true; // set immediately — prevents TOCTOU race with concurrent callers
+  const screeningCycleId = newScreeningCycleId();
+  const screeningStartedAt = new Date().toISOString();
+  const screeningStartedMs = Date.now();
   _screeningLastTriggered = Date.now();
 
   // Hard guards — don't even run the agent if preconditions aren't met
@@ -603,6 +607,16 @@ export async function runScreeningCycle({ silent = false } = {}) {
 
     const weightsSummary = config.darwin?.enabled ? getWeightsSummary() : null;
 
+    if (config.llm.shadowScreeningEnabled) {
+      const shadowPacket = Object.freeze({
+        cycle_id: screeningCycleId,
+        candidate_count: passing.length,
+        candidates: candidateBlocks.join("\n\n"),
+        allowedPools: passing.map(({ pool }) => pool.pool).filter(Boolean),
+      });
+      void launchShadowComparisons({ packet: shadowPacket, timeoutMs: config.llm.shadowScreeningTimeoutMs, keyCommand: config.llm.shadowScreeningKeyCommand }).catch(() => []);
+    }
+
     let deployAttempted = false;
     let deploySucceeded = false;
     const { content } = await agentLoop(`
@@ -670,7 +684,7 @@ STEPS:
    <short flat list of top candidate names and why they were skipped>
 IMPORTANT:
 - Keep the whole report compact and highly scannable for Telegram.
-      `, config.llm.maxSteps, [], "SCREENER", config.llm.screeningModel, 2048, {
+      `, config.llm.screeningMaxSteps, [], "SCREENER", config.llm.screeningModel, 2048, {
         onToolStart: async ({ name }) => {
           if (name === "deploy_position") deployAttempted = true;
           await liveMessage?.toolStart(name);
@@ -685,6 +699,20 @@ IMPORTANT:
       });
     const funnelAppend = buildGmgnFunnelReport(gmgnStageCounts, gmgnAllFiltered, { fromStage: 2 });
     screenReport = funnelAppend ? `${content}\n\n─────────────\n${funnelAppend}` : content;
+    const liveDecision = deriveDecisionFromReport(content);
+    const authoritativeDecision = deploySucceeded ? "deploy" : "no_deploy";
+    const authoritativeSuccess = deploySucceeded || liveDecision.decision !== null;
+    recordAuthoritativeScreening({
+      cycleId: screeningCycleId,
+      startedAt: screeningStartedAt,
+      durationMs: Date.now() - screeningStartedMs,
+      status: authoritativeSuccess ? "success" : "failure",
+      decision: authoritativeDecision,
+      selectedPool: liveDecision.selectedPool,
+      candidateCount: passing.length,
+      model: config.llm.screeningModel,
+      errorClass: authoritativeSuccess ? null : (/max steps/i.test(content) ? "MaxStepsReached" : "NoFinalDecision"),
+    });
     if (/⛔\s*NO DEPLOY/i.test(content)) {
       appendDecision({
         type: "no_deploy",
@@ -703,6 +731,19 @@ IMPORTANT:
   } catch (error) {
     log("cron_error", `Screening cycle failed: ${error.message}`);
     screenReport = `Screening cycle failed: ${error.message}`;
+    try {
+      recordAuthoritativeScreening({
+        cycleId: screeningCycleId,
+        startedAt: screeningStartedAt,
+        durationMs: Date.now() - screeningStartedMs,
+        status: "failure",
+        decision: null,
+        selectedPool: null,
+        candidateCount: 0,
+        model: config.llm.screeningModel,
+        errorClass: error?.name || "Error",
+      });
+    } catch { /* telemetry must never mask the live failure */ }
   } finally {
     _screeningBusy = false;
     if (!silent && telegramEnabled()) {

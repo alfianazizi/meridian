@@ -19,6 +19,7 @@ describe('dashboard application',()=>{
    if(url.includes('/api/overview'))return ok({realized_pnl_usd:25.76,fees_earned_usd:146.5,trade_count:459,win_count:256,loss_count:147,breakeven_count:56,win_rate:.5577,average_return_pct:0,median_return_pct:0,profit_factor:{value:1.2,state:'finite'}});
    if(url.includes('/api/performance/series'))return ok([],{freshness:null,coverage:{eligible:459,included:459,total:460}});
    if(url.includes('/api/reliability/summary'))return ok({tool_actions:3521,successful_tool_actions:3011,tool_success_rate:.855,recent_reliability_failures:72});
+   if(url.includes('/api/models/performance'))return ok({models:[],comparisons:[]});
    return ok([]);
   }));
   renderShell();

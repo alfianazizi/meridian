@@ -152,3 +152,6 @@ export interface MetaData {
   read_only: boolean;
   schema_version: number;
 }
+export interface ModelPerformanceRow{model:string;provider:string|null;authoritative:boolean;sample_count:number;p50_ms:number|null;p90_ms:number|null;success_rate:number|null;failure_rate:number|null;deploy_count:number;no_deploy_count:number;agreement_rate:number|null;agreement_sample:number}
+export interface ModelRun{cycle_id:string;ts:string;provider:string;model:string;authoritative:number;duration_ms:number|null;status:string;decision:'deploy'|'no_deploy'|null;candidate_count:number;selected_pool:string|null;error_class:string|null}
+export interface ModelPerformanceData{models:ModelPerformanceRow[];comparisons:{cycle_id:string;runs:ModelRun[]}[]}

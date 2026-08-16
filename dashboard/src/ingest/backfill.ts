@@ -1,8 +1,9 @@
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { DB } from '../db/connection.js';
 import { ingestJsonlFile } from './jsonl.js';
 import { ingestMutableJson } from './mutableJson.js';
+import { ingestModelTelemetry } from './modelTelemetry.js';
 import { reconcileQuality } from './quality.js';
 
 export interface BackfillSummary {
@@ -28,6 +29,8 @@ export function backfill(db: DB, repositoryRoot: string): BackfillSummary {
   for (const name of readdirSync(logs).filter((name) => /^actions-[^/]+\.jsonl$/.test(name)).sort()) {
     ingestJsonlFile(db, join(logs, name));
   }
+  const modelTelemetry=join(logs,'model-screening.jsonl');
+  if(existsSync(modelTelemetry))ingestModelTelemetry(db,modelTelemetry);
   reconcileQuality(db);
   return summarize(db);
 }

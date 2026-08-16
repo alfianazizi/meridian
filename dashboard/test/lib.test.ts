@@ -49,7 +49,8 @@ describe('redaction', () => {
 
 describe('allowlist', () => {
   it('permits the five contract sources only', () => {
-    expect(ALLOWED_SOURCES.length).toBeLessThanOrEqual(5);
+    expect(ALLOWED_SOURCES).toContain('logs/model-screening.jsonl');
+    expect(ALLOWED_SOURCES.length).toBeLessThanOrEqual(6);
     expect(ALLOWED_SOURCES).toContain('state.json');
     expect(ALLOWED_SOURCES).toContain('lessons.json');
     expect(ALLOWED_SOURCES).toContain('decision-log.json');
