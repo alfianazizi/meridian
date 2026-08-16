@@ -90,6 +90,7 @@ import { config } from "./config.js";
 import { getStateSummary } from "./state.js";
 import { getLessonsForPrompt, getPerformanceSummary } from "./lessons.js";
 import { getDecisionSummary } from "./decision-log.js";
+import { classifyToolFreeFinal, initialToolChoice, shouldStopAfterEmpty } from "./agent-policy.js";
 
 // Supports OpenRouter (default) or any OpenAI-compatible local server (e.g. LM Studio)
 // To use LM Studio: set LLM_BASE_URL=http://localhost:1234/v1 and LLM_API_KEY=lm-studio in .env
@@ -198,9 +199,10 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
       const FALLBACK_MODEL = "stepfun/step-3.5-flash:free";
       let response;
       let usedModel = activeModel;
-      // Force a tool call on step 0 for action intents — prevents the model from inventing deploy/close outcomes
-      const ACTION_INTENTS = /\b(deploy|open|add liquidity|close|exit|withdraw|claim|swap|block|unblock)\b/i;
-      let toolChoice = (step === 0 && (ACTION_INTENTS.test(goal) || mustUseRealTool)) ? "required" : "auto";
+      // Screeners may safely conclude NO DEPLOY without a tool; mutating claims remain tool-backed.
+      let toolChoice = step === 0
+        ? initialToolChoice({ agentType, goal, mustUseRealTool })
+        : "auto";
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -282,10 +284,19 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
         // Hermes sometimes returns null content — pop the empty message and retry once
         if (!msg.content) {
           messages.pop(); // remove the empty assistant message
-          log("agent", "Empty response, retrying...");
+          emptyStreak += 1;
+          const finishReason = response.choices?.[0]?.finish_reason ?? "unknown";
+          const reasoningLength = String(msg.reasoning_content ?? msg.reasoning ?? "").length;
+          const completionTokens = response.usage?.completion_tokens ?? null;
+          log("agent", `Empty response (${emptyStreak}/2) | finish=${finishReason} reasoning_chars=${reasoningLength} completion_tokens=${completionTokens ?? "unknown"}`);
+          if (shouldStopAfterEmpty(emptyStreak)) {
+            return { content: "Provider returned repeated empty responses. No deployment was attempted.", userMessage: goal };
+          }
           continue;
         }
-        if (mustUseRealTool && !sawToolCall) {
+        emptyStreak = 0;
+        const toolFreePolicy = classifyToolFreeFinal({ agentType, content: msg.content, mustUseRealTool, sawToolCall });
+        if (toolFreePolicy === "reject") {
           noToolRetryCount += 1;
           messages.pop();
           log("agent", `Rejected no-tool final answer (${noToolRetryCount}/2) for tool-required request`);

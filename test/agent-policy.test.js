@@ -1,0 +1,6 @@
+import test from'node:test';import assert from'node:assert/strict';import{classifyToolFreeFinal,initialToolChoice,shouldStopAfterEmpty}from'../agent-policy.js';
+test('screener accepts strict no-deploy without tools',()=>assert.equal(classifyToolFreeFinal({agentType:'SCREENER',content:'⛔ NO DEPLOY\n\nCycle finished with no valid entry.',mustUseRealTool:true,sawToolCall:false}),'accept'));
+test('screener rejects unbacked deployed claim and ambiguous prose',()=>{for(const content of['🚀 DEPLOYED\nFake pool','I would deploy nothing'])assert.equal(classifyToolFreeFinal({agentType:'SCREENER',content,mustUseRealTool:true,sawToolCall:false}),'reject')});
+test('other action roles still require tools',()=>assert.equal(classifyToolFreeFinal({agentType:'GENERAL',content:'done',mustUseRealTool:true,sawToolCall:false}),'reject'));
+test('screener starts auto while other actions start required',()=>{assert.equal(initialToolChoice({agentType:'SCREENER',goal:'deploy if qualified',mustUseRealTool:true}),'auto');assert.equal(initialToolChoice({agentType:'GENERAL',goal:'close position',mustUseRealTool:true}),'required')});
+test('empty responses stop at two consecutive failures',()=>{assert.equal(shouldStopAfterEmpty(1),false);assert.equal(shouldStopAfterEmpty(2),true)});
