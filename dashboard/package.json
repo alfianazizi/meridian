@@ -1,0 +1,33 @@
+{
+  "name": "@meridian/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only analytics backend for Meridian. Ingests allowlisted runtime JSON/JSONL sources into SQLite and serves metric queries over a read-only Fastify API. No imports from the trading executor.",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "migrate": "tsx src/scripts/migrate.ts",
+    "backfill": "tsx src/scripts/backfill.ts",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "fastify": "^5.12.0",
+    "kysely": "^0.29.5",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.20.1",
+    "tsx": "^4.23.12",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
+  }
+}
