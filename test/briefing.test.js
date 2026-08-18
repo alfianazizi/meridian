@@ -1,0 +1,3 @@
+import test from'node:test';import assert from'node:assert/strict';import{escapeTelegramHTML,stripTelegramHTML}from'../telegram-html.js';
+test('escapes dynamic comparison text for Telegram HTML',()=>{const raw='Stop loss: PnL -18.39% <= -15% & falling';const escaped=escapeTelegramHTML(raw);assert.equal(escaped,'Stop loss: PnL -18.39% &lt;= -15% &amp; falling');assert.equal(stripTelegramHTML(`<b>Lesson</b>: ${escaped}`),'Lesson: Stop loss: PnL -18.39% <= -15% & falling')});
+test('plain fallback removes supported formatting tags',()=>{assert.equal(stripTelegramHTML('☀️ <b>Morning</b> <i>Briefing</i>'),'☀️ Morning Briefing')});

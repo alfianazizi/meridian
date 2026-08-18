@@ -1,6 +1,7 @@
 import fs from "fs";
 import { log } from "./logger.js";
 import { repoPath } from "./repo-root.js";
+import { stripTelegramHTML } from "./telegram-html.js";
 
 const USER_CONFIG_PATH = repoPath("user-config.json");
 
@@ -159,7 +160,10 @@ export async function sendMessageWithButtons(text, inlineKeyboard) {
 
 export async function sendHTML(html) {
   if (!TOKEN || !chatId) return;
-  return postTelegram("sendMessage", { text: html.slice(0, 4096), parse_mode: "HTML" });
+  const result = await postTelegram("sendMessage", { text: html.slice(0, 4096), parse_mode: "HTML" });
+  if (result) return result;
+  log("telegram_warn", "HTML send failed; retrying as plain text");
+  return postTelegram("sendMessage", { text: stripTelegramHTML(html).slice(0, 4096) });
 }
 
 export async function editMessage(text, messageId) {

@@ -119,7 +119,8 @@ async function runBriefing() {
   try {
     const briefing = await generateBriefing();
     if (telegramEnabled()) {
-      await sendHTML(briefing);
+      const delivered = await sendHTML(briefing);
+      if (!delivered) throw new Error("Telegram did not confirm briefing delivery");
     }
     setLastBriefingDate();
   } catch (error) {
@@ -1676,6 +1677,17 @@ async function telegramHandler(msg) {
     await showSettingsMenu().catch((e) => sendMessage(`Settings error: ${e.message}`).catch(() => {}));
     return;
   }
+  // Read-only and deterministic; it must not wait behind a long model cycle.
+  if (text === "/briefing") {
+    try {
+      const briefing = await generateBriefing();
+      const delivered = await sendHTML(briefing);
+      if (!delivered) throw new Error("Telegram did not confirm briefing delivery");
+    } catch (e) {
+      await sendMessage(`Briefing error: ${e.message}`).catch(() => {});
+    }
+    return;
+  }
   if (_managementBusy || _screeningBusy || busy) {
     if (_telegramQueue.length < 5) {
       _telegramQueue.push(msg);
@@ -1686,15 +1698,6 @@ async function telegramHandler(msg) {
     return;
   }
 
-  if (text === "/briefing") {
-    try {
-      const briefing = await generateBriefing();
-      await sendHTML(briefing);
-    } catch (e) {
-      await sendMessage(`Error: ${e.message}`).catch(() => {});
-    }
-    return;
-  }
 
   if (text === "/help") {
     await sendMessage(formatHelpText()).catch(() => {});
